@@ -204,9 +204,9 @@ export default function RiderDashboard() {
           maxBounds={INDIA_BOUNDS}
           maxBoundsViscosity={1.0}
           style={{ height: '100%', width: '100%' }}
-          zoomControl={false}
-          scrollWheelZoom={false}
-          dragging={false}
+          zoomControl={true}
+          scrollWheelZoom={true}
+          dragging={true}
         >
           <TileLayer
             url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
