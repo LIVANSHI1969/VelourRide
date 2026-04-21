@@ -28,7 +28,7 @@ const rideSchema = new mongoose.Schema(
     },
     rideType: {
       type: String,
-      enum: ["standard", "comfort", "black"],
+      enum: ["bike", "auto", "standard", "comfort", "black", "parcel"],
       default: "standard",
     },
     status: {

@@ -2,6 +2,31 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { io } from "socket.io-client";
 import api from "../services/api";
+import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+});
+
+// Scooty icon for drivers
+const scootyIcon = new L.Icon({
+  iconUrl: 'data:image/svg+xml;base64,' + btoa(`
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="12" cy="12" r="10" fill="#10B981" stroke="#065F46" stroke-width="2"/>
+      <path d="M8 14l4-4 4 4" stroke="#065F46" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="10" cy="16" r="1.5" fill="#065F46"/>
+      <circle cx="14" cy="16" r="1.5" fill="#065F46"/>
+    </svg>
+  `),
+  iconSize: [24, 24],
+  iconAnchor: [12, 12],
+  popupAnchor: [0, -12],
+});
 
 const STATUS_LABELS = {
   searching:  "Finding your driver...",
@@ -17,6 +42,7 @@ export default function RideTracking() {
   const navigate = useNavigate();
   const [ride, setRide] = useState(null);
   const [status, setStatus] = useState("searching");
+  const [nearbyDrivers, setNearbyDrivers] = useState([]);
 
   useEffect(() => {
     const fetchRide = async () => {
@@ -24,6 +50,19 @@ export default function RideTracking() {
         const { data } = await api.get(`/rides/${id}`);
         setRide(data.ride);
         setStatus(data.ride.status);
+
+        // Fetch nearby drivers
+        if (data.ride.pickup?.coordinates) {
+          const { data: driversData } = await api.get('/drivers/nearby', {
+            params: {
+              lat: data.ride.pickup.coordinates.lat,
+              lng: data.ride.pickup.coordinates.lng,
+              radius: 5,
+              rideType: data.ride.rideType
+            }
+          });
+          setNearbyDrivers(driversData.drivers || []);
+        }
       } catch (err) {
         console.error(err);
       }
@@ -80,12 +119,42 @@ export default function RideTracking() {
         </div>
       </div>
 
-      {/* Map placeholder */}
-      <div className="flex-1 bg-[#0a0a0a] relative flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-6xl mb-4">🗺️</div>
-          <p className="text-gray-600 text-sm">Live map coming in Phase 4</p>
-        </div>
+      {/* Map */}
+      <div className="flex-1 relative">
+        {ride ? (
+          <MapContainer
+            center={ride.pickup?.coordinates ? [ride.pickup.coordinates.lat, ride.pickup.coordinates.lng] : [28.6139, 77.2090]}
+            zoom={15}
+            style={{ height: '400px', width: '100%' }}
+            zoomControl={false}
+            scrollWheelZoom={false}
+            dragging={false}
+          >
+            <TileLayer
+              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+              attribution='&copy; CARTO'
+            />
+            {/* Pickup location */}
+            {ride.pickup?.coordinates && (
+              <Marker position={[ride.pickup.coordinates.lat, ride.pickup.coordinates.lng]} />
+            )}
+            {/* Nearby drivers with scooty icons */}
+            {nearbyDrivers.map((driver, index) => (
+              driver.location?.coordinates && (
+                <Marker
+                  key={`driver-${index}`}
+                  position={[driver.location.coordinates[1], driver.location.coordinates[0]]}
+                  icon={scootyIcon}
+                  title={driver.name}
+                />
+              )
+            ))}
+          </MapContainer>
+        ) : (
+          <div className="flex-1 flex items-center justify-center text-gray-500">
+            {ride ? 'No location data available' : 'Loading ride details...'}
+          </div>
+        )}
 
         {/* Status pill */}
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-[#111] border border-[#2a2a2a] rounded-full px-5 py-2.5 flex items-center gap-2">

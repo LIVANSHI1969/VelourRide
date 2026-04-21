@@ -155,7 +155,7 @@ export default function RiderDashboard() {
   const fetchEstimate = async () => {
     if (!pickupCoords || !destCoords) return;
     try {
-      const { data } = await estimateRide(pickupCoords, destCoords, rideType);
+      const { data } = await estimateRide(pickupCoords, destCoords, rideType, promoCode);
       setEstimate(data);
     } catch {
       setEstimate({ distance: 0, duration: 0, fare: { total: 0 } });

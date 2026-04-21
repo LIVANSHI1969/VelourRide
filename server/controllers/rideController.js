@@ -35,9 +35,43 @@ const calcFare = (rideType, distance, promoCode = null) => {
 
 // POST /api/rides
 exports.createRide = async (req, res, next) => {
+  const mongoose = require('mongoose');
+  const { rides } = require('../utils/memoryDB');
   try {
     const { pickup, destination, rideType, distance, duration, promoCode } = req.body;
     const fare = calcFare(rideType || "standard", distance || 0, promoCode);
+
+    if (mongoose.connection.readyState !== 1) {
+      const rideData = {
+        _id: new mongoose.Types.ObjectId(),
+        rider: req.user._id,
+        pickup,
+        destination,
+        rideType: rideType || "standard",
+        distance,
+        duration,
+        fare,
+        promoCode: promoCode || null,
+        status: "searching",
+        createdAt: new Date(),
+      };
+      rides.push(rideData);
+
+      // Broadcast new ride request to all online drivers
+      const io = req.app.get("io");
+      if (io) {
+        io.to("drivers").emit("newRideRequest", {
+          rideId: rideData._id,
+          pickup: rideData.pickup,
+          destination: rideData.destination,
+          fare: rideData.fare,
+          rideType: rideData.rideType,
+        });
+      }
+
+      res.status(201).json({ success: true, ride: rideData });
+      return;
+    }
 
     const ride = await Ride.create({
       rider: req.user._id,
@@ -71,12 +105,26 @@ exports.createRide = async (req, res, next) => {
 
 // GET /api/rides/history
 exports.getRideHistory = async (req, res, next) => {
+  const mongoose = require('mongoose');
+  const { rides: allRides, users } = require('../utils/memoryDB');
   try {
+    if (mongoose.connection.readyState !== 1) {
+      const roleField = req.user.role === "rider" ? "rider" : "driver";
+      let historyRides = allRides.filter(r => r.status === "completed" && r[roleField] === req.user._id)
+        .sort((a, b) => new Date(b.createdAt || b._id) - new Date(a.createdAt || a._id))
+        .slice(0,20);
+      const history = historyRides.map(ride => ({
+        ...ride,
+        rider: users.find(u => u._id.toString() === ride.rider.toString()) || {name: 'Anonymous Rider'},
+        driver: users.find(u => u._id.toString() === ride.driver?.toString()) || {name: 'Anonymous Driver', vehicle: {}},
+      }));
+      res.status(200).json({ success: true, rides: history });
+      return;
+    }
     const filter =
       req.user.role === "rider"
         ? { rider: req.user._id }
         : { driver: req.user._id };
-
     const rides = await Ride.find({ ...filter, status: "completed" })
       .sort({ createdAt: -1 })
       .limit(20)
@@ -213,13 +261,24 @@ exports.estimateRide = async (req, res, next) => {
 // GET /api/drivers/nearby
 exports.getNearbyDrivers = async (req, res, next) => {
   try {
-    const { rideType } = req.query;
+    const { lat, lng, radius = 10, rideType } = req.query; // radius in km, default 10km
 
-    const drivers = await User.find({
+    let query = {
       role: "driver",
       isOnline: true,
       ...(rideType ? { "vehicle.type": rideType } : {}),
-    }).select("name rating vehicle location");
+    };
+
+    if (lat && lng) {
+      query.location = {
+        $near: {
+          $geometry: { type: "Point", coordinates: [parseFloat(lng), parseFloat(lat)] },
+          $maxDistance: parseFloat(radius) * 1000, // convert km to meters
+        },
+      };
+    }
+
+    const drivers = await User.find(query).select("name rating vehicle location");
 
     res.status(200).json({ success: true, drivers });
   } catch (error) {
