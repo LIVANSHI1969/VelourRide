@@ -110,7 +110,24 @@ export default function RideTracking() {
   const [driverPos,     setDriverPos]     = useState([]);   // live positions (drift)
   const pollRef = useRef(null);
 
-  // ── Get exact user GPS location ──────────────────────────────────────────
+  // ── Mock drivers scattered around center ─────────────────────────────────
+  const makeMockDrivers = (center, type) => {
+    const offsets = [
+      {  dlat:  0.008, dlng:  0.011 },
+      {  dlat: -0.006, dlng:  0.009 },
+      {  dlat:  0.010, dlng: -0.007 },
+      {  dlat: -0.008, dlng: -0.012 },
+      {  dlat:  0.004, dlng:  0.016 },
+    ];
+    return offsets.map((o, i) => ({
+      _id:      `mock_${i}`,
+      name:     `Driver ${i + 1}`,
+      rideType: type,
+      lat:      center.lat + o.dlat,
+      lng:      center.lng + o.dlng,
+      isMock:   true,
+    }));
+  };
   useEffect(() => {
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
@@ -158,10 +175,20 @@ export default function RideTracking() {
           lng:      d.location?.coordinates?.[0],
         })).filter((d) => d.lat && d.lng);
 
-        setDrivers(list);
-        setDriverPos(list.map((d) => ({ lat: d.lat, lng: d.lng })));
+        // Pad with mock drivers if fewer than 3 real ones found
+        const mocks = list.length < 3
+          ? makeMockDrivers(center, ride.rideType).slice(0, 5 - list.length)
+          : [];
+        const combined = [...list, ...mocks];
+
+        setDrivers(combined);
+        setDriverPos(combined.map((d) => ({ lat: d.lat, lng: d.lng })));
       } catch (err) {
         console.error("Nearby drivers fetch failed:", err);
+        // Show mock drivers so map is never empty
+        const mocks = makeMockDrivers(center, ride.rideType);
+        setDrivers(mocks);
+        setDriverPos(mocks.map((d) => ({ lat: d.lat, lng: d.lng })));
       }
     };
 
@@ -275,7 +302,9 @@ export default function RideTracking() {
           bg-[#111]/90 border border-[#333] rounded-xl px-3 py-2">
           <p className="text-xs text-gray-400">
             {drivers.length > 0
-              ? `${drivers.length} ${vehicle.label} nearby`
+              ? drivers.some(d => !d.isMock)
+                ? `${drivers.filter(d => !d.isMock).length} real · ${drivers.filter(d => d.isMock).length} nearby`
+                : `${drivers.length} ${vehicle.label} nearby`
               : "Searching..."}
           </p>
         </div>

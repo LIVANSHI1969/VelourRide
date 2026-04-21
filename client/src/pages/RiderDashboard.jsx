@@ -1,4 +1,4 @@
- import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import api, { estimateRide } from "../services/api";
@@ -43,37 +43,27 @@ function LocationInput({ value, onChange, onSelect, placeholder, dotStyle }) {
     const val = e.target.value;
     onChange(val);
     clearTimeout(debounceRef.current);
-    if (val.length < 2) { setSuggestions([]); return; }
+    if (val.length < 3) { setSuggestions([]); return; }
     debounceRef.current = setTimeout(async () => {
       try {
         const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(val)}&format=json&addressdetails=1&limit=8&countrycodes=in&featureType=house&structured=1`,
+          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(val)}&format=json&addressdetails=1&limit=6&countrycodes=in`,
           { headers: { 'Accept-Language': 'en' } }
         );
         const data = await res.json();
-        setSuggestions(data.filter(s => s.type !== 'city'));
+        setSuggestions(data);
         setShowSuggestions(true);
       } catch { setSuggestions([]); }
-    }, 300);
+    }, 400);
   };
 
   const handleSelect = (item) => {
-    const prefix = value.trim();
-    let label = prefix + ", Sector 10, Panchkula";
-    if (item.address) {
-      const addr = [];
-      if (prefix.match(/\\d+/)) addr.push(prefix);
-      if (item.address.road) addr.push(item.address.road);
-      if (item.address.suburb || item.address.neighbourhood) addr.push(item.address.suburb || item.address.neighbourhood);
-      if (item.address.city_district || item.address.city) addr.push(item.address.city_district || item.address.city);
-      label = addr.join(", ");
-    }
+    const label = item.display_name.split(",").slice(0, 3).join(", ");
     onChange(label);
     onSelect({ lat: parseFloat(item.lat), lng: parseFloat(item.lon), label });
     setSuggestions([]);
     setShowSuggestions(false);
   };
-
 
   return (
     <div className="relative">
@@ -90,13 +80,9 @@ function LocationInput({ value, onChange, onSelect, placeholder, dotStyle }) {
       {showSuggestions && suggestions.length > 0 && (
         <div className="absolute top-full left-0 right-0 mt-1 bg-[#111] border border-[#2a2a2a] rounded-xl overflow-hidden z-50 shadow-xl">
           {suggestions.map((item, i) => {
-            const addr = [];
-            if (item.address?.house_number) addr.push(`House ${item.address.house_number}`);
-            if (item.address?.road) addr.push(item.address.road);
-            if (item.address?.suburb || item.address?.neighbourhood) addr.push(item.address.suburb || item.address.neighbourhood);
-            if (item.address?.city_district || item.address?.city) addr.push(item.address.city_district || item.address.city);
-            const main = addr[0] || item.display_name.split(",")[0];
-            const sub = addr.slice(1).join(", ") || item.display_name.split(",").slice(1,3).join(", "); 
+            const parts = item.display_name.split(",");
+            const main = parts.slice(0, 2).join(",");
+            const sub = parts.slice(2, 4).join(",");
             return (
               <button
                 key={i}
@@ -157,11 +143,11 @@ export default function RiderDashboard() {
         }
       },
       () => {
-        const fallback = { lat: 30.7333, lng: 76.7794 }; // Chandigarh default
+        const fallback = { lat: 28.6139, lng: 77.2090 };
         setUserCoords(fallback);
         setPickupCoords(fallback);
-        setLocationLabel("Chandigarh");
-        setPickup("Chandigarh");
+        setLocationLabel("New Delhi");
+        setPickup("New Delhi");
       }
     );
   }, []);
@@ -179,28 +165,50 @@ export default function RiderDashboard() {
   useEffect(() => {
     const timer = setTimeout(fetchEstimate, 500);
     return () => clearTimeout(timer);
-  }, [pickupCoords, destCoords, rideType]);
+  }, [pickupCoords, destCoords, rideType, promoCode]);
+
+  // Haversine fallback so we always have a distance even if estimate API failed
+  const haversine = (lat1, lng1, lat2, lng2) => {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2 +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+    return parseFloat((R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))).toFixed(1));
+  };
 
   const handleBook = async () => {
-    if (!pickup || !destination || estimate.distance === 0) { 
-      setError("Please select pickup, destination, and wait for estimate"); 
-      return; 
+    if (!pickup || !pickupCoords) {
+      setError("Please select a pickup location");
+      return;
+    }
+    if (!destination || !destCoords) {
+      setError("Please select a destination");
+      return;
     }
     setError("");
     setLoading(true);
     try {
+      // Use estimate values if available, else compute fallback
+      const distance = estimate.distance > 0
+        ? estimate.distance
+        : haversine(pickupCoords.lat, pickupCoords.lng, destCoords.lat, destCoords.lng);
+      const duration = estimate.duration > 0
+        ? estimate.duration
+        : Math.max(5, Math.round((distance / 50) * 60 * 1.5));
+
       const { data } = await api.post("/rides", {
-        pickup: { address: pickup, coordinates: pickupCoords },
+        pickup:      { address: pickup,      coordinates: pickupCoords },
         destination: { address: destination, coordinates: destCoords },
         rideType,
-        distance: estimate.distance,
-        duration: estimate.duration,
+        distance,
+        duration,
         promoCode,
         payment: { method: paymentMethod },
       });
       navigate(`/ride/${data.ride._id}`);
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to book ride");
+      setError(err.response?.data?.message || "Failed to book ride. Is the server running?");
     } finally {
       setLoading(false);
     }
@@ -298,7 +306,7 @@ export default function RiderDashboard() {
               ))}
             </div>
           </div>
-            <div className="flex gap-2">
+          <div className="flex gap-2">
             <input
               type="text"
               placeholder="Promo (FIRST10)"
@@ -306,7 +314,7 @@ export default function RiderDashboard() {
               onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
               className="flex-1 bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-[#555]"
             />
-            <button onClick={fetchEstimate} className="bg-gray-700 px-4 py-3 rounded-xl text-sm hover:bg-gray-600 transition-colors disabled:opacity-50" disabled={!pickupCoords || !destCoords}>
+            <button onClick={fetchEstimate} className="bg-gray-700 px-4 py-3 rounded-xl text-sm hover:bg-gray-600 transition-colors">
               Apply
             </button>
           </div>
@@ -345,9 +353,9 @@ export default function RiderDashboard() {
               <option value="card">Card/UPI</option>
               <option value="wallet">Wallet</option>
             </select>
-            <button onClick={handleBook} disabled={loading}
-              className="w-full bg-white text-black rounded-xl py-4 font-medium tracking-wide hover:bg-gray-100 transition-colors disabled:opacity-50">
-              {loading ? "Booking..." : `Request ride (₹${estimate.fare.total})`}
+            <button onClick={handleBook} disabled={loading || !pickup || !destination || !pickupCoords || !destCoords}
+              className="w-full bg-white text-black rounded-xl py-4 font-medium tracking-wide hover:bg-gray-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+              {loading ? "Booking..." : estimate.fare.total > 0 ? `Request ride · ₹${estimate.fare.total}` : "Request ride"}
             </button>
           </div>
         </div>

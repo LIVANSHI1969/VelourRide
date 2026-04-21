@@ -51,7 +51,7 @@ const userSchema = new mongoose.Schema(
       plate: String,
       type: {
         type: String,
-        enum: ["standard", "comfort", "black"],
+        enum: ["bike", "auto", "standard", "comfort", "black", "parcel"],
         default: "standard",
       },
     },
