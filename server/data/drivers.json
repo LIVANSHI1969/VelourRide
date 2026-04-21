@@ -1,0 +1,27 @@
+[
+  {
+    "location": {
+      "type": "Point",
+      "coordinates": [
+        0,
+        0
+      ]
+    },
+    "vehicle": {
+      "model": "HR03AE7030",
+      "plate": "7030",
+      "type": "standard"
+    },
+    "_id": "69e7157e94573a2cf16e5f9b",
+    "name": "Livanshi",
+    "email": "livanshi24.malhotra@gmail.com",
+    "role": "driver",
+    "phone": "",
+    "isOnline": false,
+    "rating": 5,
+    "totalRides": 0,
+    "createdAt": "2026-04-21T06:13:18.120Z",
+    "updatedAt": "2026-04-21T06:18:54.828Z",
+    "__v": 0
+  }
+]

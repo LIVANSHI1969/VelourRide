@@ -1,0 +1,114 @@
+[
+  {
+    "location": {
+      "type": "Point",
+      "coordinates": [
+        0,
+        0
+      ]
+    },
+    "vehicle": {
+      "type": "standard"
+    },
+    "_id": "69e706c5bd7146c714184ec8",
+    "name": "Komal",
+    "email": "komalkomal@gmail.com",
+    "role": "rider",
+    "phone": "",
+    "isOnline": false,
+    "rating": 5,
+    "totalRides": 0,
+    "createdAt": "2026-04-21T05:10:29.691Z",
+    "updatedAt": "2026-04-21T05:10:29.691Z",
+    "__v": 0
+  },
+  {
+    "location": {
+      "type": "Point",
+      "coordinates": [
+        0,
+        0
+      ]
+    },
+    "vehicle": {
+      "type": "standard"
+    },
+    "_id": "69e73b38e3d4fff698a247b1",
+    "name": "Test Rider",
+    "email": "test@test.com",
+    "role": "rider",
+    "isOnline": false,
+    "rating": 5,
+    "totalRides": 0,
+    "createdAt": "2026-04-21T08:54:16.620Z",
+    "updatedAt": "2026-04-21T08:54:16.620Z",
+    "__v": 0
+  },
+  {
+    "location": {
+      "type": "Point",
+      "coordinates": [
+        0,
+        0
+      ]
+    },
+    "vehicle": {
+      "type": "standard"
+    },
+    "_id": "69e73c43e3d4fff698a247b5",
+    "name": "Test2",
+    "email": "test2@test.com",
+    "role": "rider",
+    "isOnline": false,
+    "rating": 5,
+    "totalRides": 0,
+    "createdAt": "2026-04-21T08:58:43.625Z",
+    "updatedAt": "2026-04-21T08:58:43.625Z",
+    "__v": 0
+  },
+  {
+    "location": {
+      "type": "Point",
+      "coordinates": [
+        0,
+        0
+      ]
+    },
+    "vehicle": {
+      "type": "standard"
+    },
+    "_id": "69e73d6be4bdcdc12bd774d9",
+    "name": "Livanshi2",
+    "email": "livanshi2@test.com",
+    "role": "rider",
+    "isOnline": false,
+    "rating": 5,
+    "totalRides": 0,
+    "createdAt": "2026-04-21T09:03:39.808Z",
+    "updatedAt": "2026-04-21T09:03:39.808Z",
+    "__v": 0
+  },
+  {
+    "location": {
+      "type": "Point",
+      "coordinates": [
+        0,
+        0
+      ]
+    },
+    "vehicle": {
+      "type": "standard"
+    },
+    "_id": "69e73ea225edc69b581e65c6",
+    "name": "livanshiii",
+    "email": "livanshi24@gmail.com",
+    "role": "rider",
+    "phone": "",
+    "isOnline": false,
+    "rating": 5,
+    "totalRides": 0,
+    "createdAt": "2026-04-21T09:08:50.815Z",
+    "updatedAt": "2026-04-21T09:08:50.815Z",
+    "__v": 0
+  }
+]

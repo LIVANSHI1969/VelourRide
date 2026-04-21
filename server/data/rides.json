@@ -1,0 +1,470 @@
+[
+  {
+    "_id": "69e706d6bd7146c714184ecb",
+    "rider": {
+      "_id": "69e706c5bd7146c714184ec8",
+      "name": "Komal",
+      "email": "komalkomal@gmail.com",
+      "role": "rider",
+      "phone": "",
+      "isOnline": false,
+      "location": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "vehicle": {
+        "type": "standard"
+      },
+      "rating": 5,
+      "totalRides": 0,
+      "createdAt": "2026-04-21T05:10:29.691Z",
+      "updatedAt": "2026-04-21T05:10:29.691Z",
+      "__v": 0
+    },
+    "driver": null,
+    "pickup": {
+      "address": "Chandigarh",
+      "coordinates": {
+        "lat": 40.758,
+        "lng": -73.985
+      }
+    },
+    "destination": {
+      "address": "Panchkula",
+      "coordinates": {
+        "lat": 40.6413,
+        "lng": -73.7781
+      }
+    },
+    "rideType": "standard",
+    "status": "searching",
+    "fare": {
+      "baseFare": 5,
+      "distanceFare": 13.44,
+      "surgeMultiplier": 1,
+      "total": 18.44
+    },
+    "distance": 11.2,
+    "duration": 28,
+    "createdAt": "2026-04-21T05:10:46.504Z",
+    "updatedAt": "2026-04-21T05:10:46.504Z",
+    "__v": 0
+  },
+  {
+    "_id": "69e70c07771b8f40b840fd0d",
+    "rider": {
+      "_id": "69e706c5bd7146c714184ec8",
+      "name": "Komal",
+      "email": "komalkomal@gmail.com",
+      "role": "rider",
+      "phone": "",
+      "isOnline": false,
+      "location": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "vehicle": {
+        "type": "standard"
+      },
+      "rating": 5,
+      "totalRides": 0,
+      "createdAt": "2026-04-21T05:10:29.691Z",
+      "updatedAt": "2026-04-21T05:10:29.691Z",
+      "__v": 0
+    },
+    "driver": null,
+    "pickup": {
+      "address": "panchkula sector 10",
+      "coordinates": {
+        "lat": 40.758,
+        "lng": -73.985
+      }
+    },
+    "destination": {
+      "address": "chandigarh",
+      "coordinates": {
+        "lat": 40.6413,
+        "lng": -73.7781
+      }
+    },
+    "rideType": "standard",
+    "status": "searching",
+    "fare": {
+      "baseFare": 5,
+      "distanceFare": 13.44,
+      "surgeMultiplier": 1,
+      "total": 18.44
+    },
+    "distance": 11.2,
+    "duration": 28,
+    "createdAt": "2026-04-21T05:32:55.345Z",
+    "updatedAt": "2026-04-21T05:32:55.345Z",
+    "__v": 0
+  },
+  {
+    "_id": "69e7142b94573a2cf16e5f93",
+    "rider": {
+      "_id": "69e706c5bd7146c714184ec8",
+      "name": "Komal",
+      "email": "komalkomal@gmail.com",
+      "role": "rider",
+      "phone": "",
+      "isOnline": false,
+      "location": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "vehicle": {
+        "type": "standard"
+      },
+      "rating": 5,
+      "totalRides": 0,
+      "createdAt": "2026-04-21T05:10:29.691Z",
+      "updatedAt": "2026-04-21T05:10:29.691Z",
+      "__v": 0
+    },
+    "driver": null,
+    "pickup": {
+      "address": "Sector 10,  Panchkula,  Haryana",
+      "coordinates": {
+        "lat": 30.6898511,
+        "lng": 76.8479088
+      }
+    },
+    "destination": {
+      "address": "Sector 10,  Ward 1,  Chandigarh",
+      "coordinates": {
+        "lat": 30.7541885,
+        "lng": 76.7889605
+      }
+    },
+    "rideType": "standard",
+    "status": "cancelled",
+    "fare": {
+      "baseFare": 50,
+      "distanceFare": 109,
+      "surgeMultiplier": 1,
+      "promoDiscount": 0,
+      "total": 159
+    },
+    "promoCode": null,
+    "payment": {
+      "method": "cash",
+      "status": "pending"
+    },
+    "distance": 9.1,
+    "duration": 16,
+    "createdAt": "2026-04-21T06:07:39.635Z",
+    "updatedAt": "2026-04-21T06:07:48.481Z",
+    "__v": 0
+  },
+  {
+    "_id": "69e71765458148a36a1596d0",
+    "rider": {
+      "_id": "69e706c5bd7146c714184ec8",
+      "name": "Komal",
+      "email": "komalkomal@gmail.com",
+      "role": "rider",
+      "phone": "",
+      "isOnline": false,
+      "location": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "vehicle": {
+        "type": "standard"
+      },
+      "rating": 5,
+      "totalRides": 0,
+      "createdAt": "2026-04-21T05:10:29.691Z",
+      "updatedAt": "2026-04-21T05:10:29.691Z",
+      "__v": 0
+    },
+    "driver": null,
+    "pickup": {
+      "address": "Panchkula,  Haryana,  134109",
+      "coordinates": {
+        "lat": 30.6975401,
+        "lng": 76.8551066
+      }
+    },
+    "destination": {
+      "address": "Chandigarh,  160018,  India",
+      "coordinates": {
+        "lat": 30.7334421,
+        "lng": 76.7797143
+      }
+    },
+    "rideType": "standard",
+    "status": "searching",
+    "fare": {
+      "baseFare": 50,
+      "distanceFare": 98,
+      "surgeMultiplier": 1,
+      "promoDiscount": 10,
+      "total": 138
+    },
+    "promoCode": "FIRST10",
+    "payment": {
+      "method": "cash",
+      "status": "pending"
+    },
+    "distance": 8.2,
+    "duration": 15,
+    "createdAt": "2026-04-21T06:21:25.769Z",
+    "updatedAt": "2026-04-21T06:21:25.769Z",
+    "__v": 0
+  },
+  {
+    "_id": "69e72e3fbb0b467223c21e37",
+    "rider": {
+      "_id": "69e706c5bd7146c714184ec8",
+      "name": "Komal",
+      "email": "komalkomal@gmail.com",
+      "role": "rider",
+      "phone": "",
+      "isOnline": false,
+      "location": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "vehicle": {
+        "type": "standard"
+      },
+      "rating": 5,
+      "totalRides": 0,
+      "createdAt": "2026-04-21T05:10:29.691Z",
+      "updatedAt": "2026-04-21T05:10:29.691Z",
+      "__v": 0
+    },
+    "driver": null,
+    "pickup": {
+      "address": "Chandigarh,  160018,  India",
+      "coordinates": {
+        "lat": 30.7334421,
+        "lng": 76.7797143
+      }
+    },
+    "destination": {
+      "address": "Panchkula,  Haryana,  134109",
+      "coordinates": {
+        "lat": 30.6975401,
+        "lng": 76.8551066
+      }
+    },
+    "rideType": "black",
+    "status": "searching",
+    "fare": {
+      "baseFare": 150,
+      "distanceFare": 230,
+      "surgeMultiplier": 1,
+      "promoDiscount": 10,
+      "total": 370
+    },
+    "promoCode": "FIRST10",
+    "payment": {
+      "method": "cash",
+      "status": "pending"
+    },
+    "distance": 8.2,
+    "duration": 15,
+    "createdAt": "2026-04-21T07:58:55.255Z",
+    "updatedAt": "2026-04-21T07:58:55.255Z",
+    "__v": 0
+  },
+  {
+    "_id": "69e730fc3589fc1214be5e46",
+    "rider": {
+      "_id": "69e706c5bd7146c714184ec8",
+      "name": "Komal",
+      "email": "komalkomal@gmail.com",
+      "role": "rider",
+      "phone": "",
+      "isOnline": false,
+      "location": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "vehicle": {
+        "type": "standard"
+      },
+      "rating": 5,
+      "totalRides": 0,
+      "createdAt": "2026-04-21T05:10:29.691Z",
+      "updatedAt": "2026-04-21T05:10:29.691Z",
+      "__v": 0
+    },
+    "driver": null,
+    "pickup": {
+      "address": "Chandigarh,  India",
+      "coordinates": {
+        "lat": 30.729844,
+        "lng": 76.7841457
+      }
+    },
+    "destination": {
+      "address": "Panchkula,  Haryana,  134109",
+      "coordinates": {
+        "lat": 30.6975401,
+        "lng": 76.8551066
+      }
+    },
+    "rideType": "auto",
+    "status": "searching",
+    "fare": {
+      "baseFare": 30,
+      "distanceFare": 77,
+      "surgeMultiplier": 1,
+      "promoDiscount": 10,
+      "total": 97
+    },
+    "promoCode": "FIRST10",
+    "payment": {
+      "method": "cash",
+      "status": "pending"
+    },
+    "distance": 7.7,
+    "duration": 14,
+    "createdAt": "2026-04-21T08:10:36.016Z",
+    "updatedAt": "2026-04-21T08:10:36.016Z",
+    "__v": 0
+  },
+  {
+    "_id": "69e7327dedeec4231cf25aed",
+    "rider": {
+      "_id": "69e706c5bd7146c714184ec8",
+      "name": "Komal",
+      "email": "komalkomal@gmail.com",
+      "role": "rider",
+      "phone": "",
+      "isOnline": false,
+      "location": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "vehicle": {
+        "type": "standard"
+      },
+      "rating": 5,
+      "totalRides": 0,
+      "createdAt": "2026-04-21T05:10:29.691Z",
+      "updatedAt": "2026-04-21T05:10:29.691Z",
+      "__v": 0
+    },
+    "driver": null,
+    "pickup": {
+      "address": "Chandigarh,  160018,  India",
+      "coordinates": {
+        "lat": 30.7334421,
+        "lng": 76.7797143
+      }
+    },
+    "destination": {
+      "address": "Panchkula,  Haryana,  134109",
+      "coordinates": {
+        "lat": 30.6975401,
+        "lng": 76.8551066
+      }
+    },
+    "rideType": "bike",
+    "status": "cancelled",
+    "fare": {
+      "baseFare": 20,
+      "distanceFare": 66,
+      "surgeMultiplier": 1,
+      "promoDiscount": 10,
+      "total": 76
+    },
+    "promoCode": "FIRST10",
+    "payment": {
+      "method": "cash",
+      "status": "pending"
+    },
+    "distance": 8.2,
+    "duration": 15,
+    "createdAt": "2026-04-21T08:17:01.840Z",
+    "updatedAt": "2026-04-21T08:33:35.954Z",
+    "__v": 0
+  },
+  {
+    "_id": "69e73689edeec4231cf25aff",
+    "rider": {
+      "_id": "69e706c5bd7146c714184ec8",
+      "name": "Komal",
+      "email": "komalkomal@gmail.com",
+      "role": "rider",
+      "phone": "",
+      "isOnline": false,
+      "location": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ]
+      },
+      "vehicle": {
+        "type": "standard"
+      },
+      "rating": 5,
+      "totalRides": 0,
+      "createdAt": "2026-04-21T05:10:29.691Z",
+      "updatedAt": "2026-04-21T05:10:29.691Z",
+      "__v": 0
+    },
+    "driver": null,
+    "pickup": {
+      "address": "Chandigarh,  160018,  India",
+      "coordinates": {
+        "lat": 30.7334421,
+        "lng": 76.7797143
+      }
+    },
+    "destination": {
+      "address": "Panchkula,  Haryana,  134109",
+      "coordinates": {
+        "lat": 30.6975401,
+        "lng": 76.8551066
+      }
+    },
+    "rideType": "bike",
+    "status": "searching",
+    "fare": {
+      "baseFare": 20,
+      "distanceFare": 66,
+      "surgeMultiplier": 1,
+      "promoDiscount": 10,
+      "total": 76
+    },
+    "promoCode": "FIRST10",
+    "payment": {
+      "method": "cash",
+      "status": "pending"
+    },
+    "distance": 8.2,
+    "duration": 15,
+    "createdAt": "2026-04-21T08:34:17.232Z",
+    "updatedAt": "2026-04-21T08:34:17.232Z",
+    "__v": 0
+  }
+]
