@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+ import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import api, { estimateRide } from "../services/api";
@@ -43,27 +43,37 @@ function LocationInput({ value, onChange, onSelect, placeholder, dotStyle }) {
     const val = e.target.value;
     onChange(val);
     clearTimeout(debounceRef.current);
-    if (val.length < 3) { setSuggestions([]); return; }
+    if (val.length < 2) { setSuggestions([]); return; }
     debounceRef.current = setTimeout(async () => {
       try {
         const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(val)}&format=json&addressdetails=1&limit=6&countrycodes=in`,
+          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(val)}&format=json&addressdetails=1&limit=8&countrycodes=in&featureType=house&structured=1`,
           { headers: { 'Accept-Language': 'en' } }
         );
         const data = await res.json();
-        setSuggestions(data);
+        setSuggestions(data.filter(s => s.type !== 'city'));
         setShowSuggestions(true);
       } catch { setSuggestions([]); }
-    }, 400);
+    }, 300);
   };
 
   const handleSelect = (item) => {
-    const label = item.display_name.split(",").slice(0, 3).join(", ");
+    const prefix = value.trim();
+    let label = prefix + ", Sector 10, Panchkula";
+    if (item.address) {
+      const addr = [];
+      if (prefix.match(/\\d+/)) addr.push(prefix);
+      if (item.address.road) addr.push(item.address.road);
+      if (item.address.suburb || item.address.neighbourhood) addr.push(item.address.suburb || item.address.neighbourhood);
+      if (item.address.city_district || item.address.city) addr.push(item.address.city_district || item.address.city);
+      label = addr.join(", ");
+    }
     onChange(label);
     onSelect({ lat: parseFloat(item.lat), lng: parseFloat(item.lon), label });
     setSuggestions([]);
     setShowSuggestions(false);
   };
+
 
   return (
     <div className="relative">
@@ -80,9 +90,13 @@ function LocationInput({ value, onChange, onSelect, placeholder, dotStyle }) {
       {showSuggestions && suggestions.length > 0 && (
         <div className="absolute top-full left-0 right-0 mt-1 bg-[#111] border border-[#2a2a2a] rounded-xl overflow-hidden z-50 shadow-xl">
           {suggestions.map((item, i) => {
-            const parts = item.display_name.split(",");
-            const main = parts.slice(0, 2).join(",");
-            const sub = parts.slice(2, 4).join(",");
+            const addr = [];
+            if (item.address?.house_number) addr.push(`House ${item.address.house_number}`);
+            if (item.address?.road) addr.push(item.address.road);
+            if (item.address?.suburb || item.address?.neighbourhood) addr.push(item.address.suburb || item.address.neighbourhood);
+            if (item.address?.city_district || item.address?.city) addr.push(item.address.city_district || item.address.city);
+            const main = addr[0] || item.display_name.split(",")[0];
+            const sub = addr.slice(1).join(", ") || item.display_name.split(",").slice(1,3).join(", "); 
             return (
               <button
                 key={i}
@@ -143,11 +157,11 @@ export default function RiderDashboard() {
         }
       },
       () => {
-        const fallback = { lat: 28.6139, lng: 77.2090 };
+        const fallback = { lat: 30.7333, lng: 76.7794 }; // Chandigarh default
         setUserCoords(fallback);
         setPickupCoords(fallback);
-        setLocationLabel("New Delhi");
-        setPickup("New Delhi");
+        setLocationLabel("Chandigarh");
+        setPickup("Chandigarh");
       }
     );
   }, []);
@@ -165,7 +179,7 @@ export default function RiderDashboard() {
   useEffect(() => {
     const timer = setTimeout(fetchEstimate, 500);
     return () => clearTimeout(timer);
-  }, [pickupCoords, destCoords, rideType, promoCode]);
+  }, [pickupCoords, destCoords, rideType]);
 
   const handleBook = async () => {
     if (!pickup || !destination || estimate.distance === 0) { 
@@ -284,7 +298,7 @@ export default function RiderDashboard() {
               ))}
             </div>
           </div>
-          <div className="flex gap-2">
+            <div className="flex gap-2">
             <input
               type="text"
               placeholder="Promo (FIRST10)"
@@ -292,7 +306,7 @@ export default function RiderDashboard() {
               onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
               className="flex-1 bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-[#555]"
             />
-            <button onClick={fetchEstimate} className="bg-gray-700 px-4 py-3 rounded-xl text-sm hover:bg-gray-600 transition-colors">
+            <button onClick={fetchEstimate} className="bg-gray-700 px-4 py-3 rounded-xl text-sm hover:bg-gray-600 transition-colors disabled:opacity-50" disabled={!pickupCoords || !destCoords}>
               Apply
             </button>
           </div>
