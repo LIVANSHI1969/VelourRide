@@ -1,6 +1,51 @@
 const User = require("../models/User");
 const Ride = require("../models/Ride");
 
+// GET /api/drivers/nearby  — accessible to riders
+exports.getNearbyDrivers = async (req, res, next) => {
+  try {
+    const { lat, lng, radius = 5, rideType } = req.query;
+
+    if (!lat || !lng) {
+      return res.status(400).json({ message: "lat and lng are required" });
+    }
+
+    // Map rideType → vehicle.type stored on driver profile
+    const vehicleTypeMap = {
+      bike: "bike", auto: "auto",
+      standard: "standard", comfort: "comfort",
+      black: "black", parcel: "parcel",
+    };
+    const vehicleType = vehicleTypeMap[rideType];
+
+    // Build the query — find online drivers near the coords
+    const query = {
+      role: "driver",
+      isOnline: true,
+      location: {
+        $near: {
+          $geometry: {
+            type: "Point",
+            coordinates: [parseFloat(lng), parseFloat(lat)],
+          },
+          $maxDistance: parseFloat(radius) * 1000, // km → metres
+        },
+      },
+    };
+
+    // Optionally filter by vehicle type
+    if (vehicleType) query["vehicle.type"] = vehicleType;
+
+    const drivers = await User.find(query)
+      .select("name vehicle location rating isOnline")
+      .limit(8);
+
+    res.status(200).json({ success: true, drivers });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // GET /api/drivers/earnings
 exports.getEarnings = async (req, res, next) => {
   const mongoose = require('mongoose');
