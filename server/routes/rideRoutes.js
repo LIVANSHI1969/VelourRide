@@ -4,6 +4,7 @@ const {
   createRide,
   getRide,
   updateRideStatus,
+  assignDriver,
   getRideHistory,
   getNearbyDrivers,
   estimateRide,
@@ -19,6 +20,7 @@ router.get("/history", getRideHistory);
 router.get("/drivers/nearby", getNearbyDrivers);
 router.get("/:id", getRide);
 router.put("/:id/status", updateRideStatus);
+router.put("/:id/assign-driver", restrictTo("rider"), assignDriver);
 router.delete("/:id", restrictTo("rider"), cancelRide);
 
 module.exports = router;
