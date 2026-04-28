@@ -26,6 +26,7 @@ app.use(express.json());
 app.use("/api/auth",    require("./routes/authRoutes"));
 app.use("/api/rides",   require("./routes/rideRoutes"));
 app.use("/api/drivers", require("./routes/driverRoutes"));
+app.use("/api/wallet",  require("./routes/walletRoutes"));
 
 app.get("/",            (req, res) => res.send("VelourRide server"));
 app.get("/api/health",  (req, res) => res.json({ status: "ok" }));

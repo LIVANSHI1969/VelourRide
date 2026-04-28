@@ -65,6 +65,36 @@ const userSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    // Wallet keeps running driver balance.
+    walletBalance: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    // Driver profile verification/KYC flags.
+    verification: {
+      status: {
+        type: String,
+        enum: ["notSubmitted", "pending", "approved", "rejected"],
+        default: "notSubmitted",
+      },
+      documents: [
+        {
+          type: { type: String, trim: true },
+          number: { type: String, trim: true },
+          url: { type: String, trim: true },
+          uploadedAt: { type: Date, default: Date.now },
+        },
+      ],
+      reviewedAt: Date,
+      rejectionReason: String,
+    },
+    emergencyContact: {
+      name: { type: String, trim: true },
+      phone: { type: String, trim: true },
+    },
+    pushTokens: [{ type: String, trim: true }],
+    lastLocationUpdatedAt: Date,
   },
   { timestamps: true }
 );

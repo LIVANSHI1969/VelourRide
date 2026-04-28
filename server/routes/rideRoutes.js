@@ -1,10 +1,9 @@
 const express = require("express");
-const router = express.Router();
+const router  = express.Router();
 const {
   createRide,
   getRide,
   updateRideStatus,
-  assignDriver,
   getRideHistory,
   getNearbyDrivers,
   estimateRide,
@@ -12,15 +11,15 @@ const {
 } = require("../controllers/rideController");
 const { protect, restrictTo } = require("../middlewares/auth");
 
-router.post("/estimate", estimateRide); // estimate no auth
-router.use(protect); // other routes require auth
+router.post("/estimate", estimateRide);   // no auth — used on booking screen
 
-router.post("/", restrictTo("rider"), createRide);
-router.get("/history", getRideHistory);
-router.get("/drivers/nearby", getNearbyDrivers);
-router.get("/:id", getRide);
-router.put("/:id/status", updateRideStatus);
-router.put("/:id/assign-driver", restrictTo("rider"), assignDriver);
-router.delete("/:id", restrictTo("rider"), cancelRide);
+router.use(protect);                      // all routes below require login
+
+router.post("/",                 restrictTo("rider"), createRide);
+router.get("/history",           getRideHistory);
+router.get("/drivers/nearby",    getNearbyDrivers);
+router.get("/:id",               getRide);
+router.put("/:id/status",        updateRideStatus);
+router.delete("/:id",            restrictTo("rider"), cancelRide);
 
 module.exports = router;

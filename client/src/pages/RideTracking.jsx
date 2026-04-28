@@ -6,6 +6,7 @@ import { MapContainer, TileLayer, Marker, Polyline, useMap } from "react-leaflet
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { useAuth } from "../context/AuthContext";
+import VehicleIcon from "../components/VehicleIcon";
 
 // ─── Inject CSS once ──────────────────────────────────────────────────────────
 (() => {
@@ -55,6 +56,19 @@ const USER_ICON = L.divIcon({
   iconSize:[26,26], iconAnchor:[13,13],
 });
 
+const makePinIcon = (color) =>
+  L.divIcon({
+    className: "vr-wrap",
+    html: `<div style="width:16px;height:16px;border-radius:50%;background:${color};
+      border:2px solid #fff;box-shadow:0 0 0 2px ${color}33,0 6px 14px rgba(0,0,0,.35);"></div>`,
+    iconSize: [16, 16],
+    iconAnchor: [8, 8],
+  });
+
+const PICKUP_BLUE_ICON = makePinIcon("#3B82F6");
+const PICKUP_GREEN_ICON = makePinIcon("#22C55E");
+const DEST_RED_ICON = makePinIcon("#EF4444");
+
 function MapCenterer({ coords }) {
   const map = useMap();
   useEffect(() => {
@@ -78,15 +92,41 @@ function FollowDriver({ pos }) {
 }
 
 const STATUS_LABELS = {
-  searching:  "Finding your driver...",
-  accepted:   "Driver accepted — heading to you",
-  arriving:   "Driver is arriving",
+  requested:  "Driver is arriving in a few minutes",
+  searching:  "Driver is arriving in a few minutes",
+  accepted:   "Driver is arriving in a few minutes",
+  arriving:   "Driver is arriving in a few minutes",
+  started:    "Ride started",
   inProgress: "Ride in progress",
   completed:  "Ride completed ✓",
-  cancelled:  "Ride cancelled",
+  cancelled:  "Ride Cancelled",
 };
 
 const lerp = (a, b, t) => a + (b - a) * t;
+const toRad = (deg) => (deg * Math.PI) / 180;
+const distanceKm = (from, to) => {
+  if (!from || !to) return null;
+  const R = 6371;
+  const dLat = toRad(to.lat - from.lat);
+  const dLng = toRad(to.lng - from.lng);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(from.lat)) * Math.cos(toRad(to.lat)) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
+const distanceMeters = (from, to) => {
+  const dKm = distanceKm(from, to);
+  return typeof dKm === "number" ? dKm * 1000 : null;
+};
+const ensureDriverStartsAway = (driverPoint, riderPoint) => {
+  if (!driverPoint || !riderPoint) return driverPoint;
+  const gap = distanceKm(driverPoint, riderPoint);
+  if (typeof gap !== "number" || gap >= 0.8) return driverPoint;
+  // If too close (or same spot), move driver back so approach animation is visible.
+  return { lat: riderPoint.lat + 0.045, lng: riderPoint.lng + 0.055 };
+};
 
 async function fetchRoadRoute(from, to) {
   try {
@@ -110,6 +150,8 @@ const RIDER_QUICK_REPLIES = [
   "Can you call me?",
 ];
 
+const CANCEL_REASONS = ["Driver late", "Changed plan", "Emergency"];
+
 export default function RideTracking() {
   const { id }   = useParams();
   const navigate = useNavigate();
@@ -122,6 +164,7 @@ export default function RideTracking() {
 
   const [ride,         setRide]         = useState(null);
   const [status,       setStatus]       = useState("searching");
+  const [rideStatus,   setRideStatus]   = useState("searching");
   const [userCoords,   setUserCoords]   = useState(null);
   const [driver,       setDriver]       = useState(null);
   const [driverPos,    setDriverPos]    = useState(null);
@@ -130,6 +173,9 @@ export default function RideTracking() {
   const [traveledRoute,setTraveledRoute]= useState([]);
   const [aheadRoute,   setAheadRoute]   = useState([]);
   const [eta,          setEta]          = useState(null);
+  const [liveTracking, setLiveTracking] = useState(false);
+  const [ridePhase,    setRidePhase]    = useState("on_the_way");
+  const arrivalTimerRef = useRef(null);
 
   // Chat
   const [chatOpen, setChatOpen] = useState(false);
@@ -137,6 +183,35 @@ export default function RideTracking() {
   const [input,    setInput]    = useState("");
   const [unread,   setUnread]   = useState(0);
   const chatEndRef = useRef(null);
+  const [rating, setRating] = useState(5);
+  const [feedback, setFeedback] = useState("");
+  const [ratingDone, setRatingDone] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState("");
+  const [cancelReason, setCancelReason] = useState("Driver late");
+  const [showCancelOptions, setShowCancelOptions] = useState(false);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("cash");
+  const [isPaying, setIsPaying] = useState(false);
+  const [paymentSuccess, setPaymentSuccess] = useState("");
+  const isCancelledFlowRef = useRef(false);
+
+  const stopTracking = () => {
+    setLiveTracking(false);
+    setRoutePoints([]);
+    setTraveledRoute([]);
+    setAheadRoute([]);
+    setEta(null);
+    setDriverPos(null);
+    setRidePhase("on_the_way");
+    if (arrivalTimerRef.current) {
+      clearTimeout(arrivalTimerRef.current);
+      arrivalTimerRef.current = null;
+    }
+    if (socketRef.current) {
+      socketRef.current.disconnect();
+      socketRef.current = null;
+    }
+  };
 
   // Keep chatOpenRef in sync with state
   useEffect(() => { chatOpenRef.current = chatOpen; }, [chatOpen]);
@@ -154,9 +229,29 @@ export default function RideTracking() {
   // ── Fetch ride ────────────────────────────────────────────────────────────
   useEffect(() => {
     api.get(`/rides/${id}`)
-      .then(({ data }) => { setRide(data.ride); setStatus(data.ride.status); })
+      .then(({ data }) => {
+        if (isCancelledFlowRef.current) return;
+        if (data.ride?.status === "cancelled") {
+          setRide(data.ride);
+          setStatus("cancelled");
+          stopTracking();
+          return;
+        }
+        setRide(data.ride);
+        setStatus(data.ride.status);
+        if (Array.isArray(data.ride.chatMessages) && data.ride.chatMessages.length) {
+          setMessages(
+            data.ride.chatMessages.map((m) => ({
+              message: m.message,
+              senderName: m.senderName,
+              senderRole: m.senderRole,
+              timestamp: new Date(m.timestamp).getTime(),
+            }))
+          );
+        }
+      })
       .catch(console.error);
-  }, [id]);
+  }, [id, navigate]);
 
   // ── Socket setup — only once ──────────────────────────────────────────────
   useEffect(() => {
@@ -164,27 +259,60 @@ export default function RideTracking() {
     socketRef.current = socket;
 
     socket.emit("joinRide", id);
+    if (user?.id) socket.emit("joinUser", user.id);
 
-    socket.on("rideStatusUpdate", ({ status: s }) => {
+    socket.on("rideStatusUpdate", ({ status: s, ride: updatedRide }) => {
+      if (isCancelledFlowRef.current) return;
+      if (s === "cancelled") {
+        if (updatedRide) setRide(updatedRide);
+        setStatus("cancelled");
+        stopTracking();
+        return;
+      }
       setStatus(s);
-      if (s === "completed") setTimeout(() => navigate("/ride"), 3000);
+      if (updatedRide) setRide(updatedRide);
+      if (updatedRide?.status === "completed" && updatedRide?.rating?.riderRating) setRatingDone(true);
+      if (s === "completed") setTimeout(() => navigate("/ride"), 12000);
     });
 
     socket.on("rideAccepted", () => setStatus("accepted"));
 
     // Use chatOpenRef (not chatOpen state) so we always see current value
     socket.on("chatMessage", (msg) => {
-      setMessages(prev => [...prev, msg]);
-      if (!chatOpenRef.current) setUnread(u => u + 1);
+      // Only add if it came from the OTHER side (driver)
+      // Our own messages are added locally in sendMessage()
+      if (msg.senderRole !== "rider") {
+        setMessages(prev => [...prev, msg]);
+        if (!chatOpenRef.current) setUnread(u => u + 1);
+      }
+    });
+
+    socket.on("driverMoved", ({ lat, lng }) => {
+      if (typeof lat !== "number" || typeof lng !== "number") return;
+      setLiveTracking(true);
+      setDriverPos({ lat, lng });
+    });
+
+    socket.on("paymentUpdated", ({ paymentStatus }) => {
+      setRide((prev) =>
+        prev ? { ...prev, payment: { ...(prev.payment || {}), status: paymentStatus } } : prev
+      );
     });
 
     return () => { socket.disconnect(); socketRef.current = null; };
-  }, [id]);
+  }, [id, navigate, user?.id]);
 
   // Clear unread + scroll when chat opens
   useEffect(() => {
     if (chatOpen) { setUnread(0); chatEndRef.current?.scrollIntoView({ behavior:"smooth" }); }
   }, [chatOpen]);
+
+  useEffect(() => {
+    setRideStatus(status);
+    if (status !== "completed") {
+      setPaymentSuccess("");
+    }
+  }, [status]);
 
   // Auto-scroll on new message
   useEffect(() => {
@@ -194,15 +322,109 @@ export default function RideTracking() {
   const sendMessage = (text) => {
     const msg = (text || input).trim();
     if (!msg || !socketRef.current) return;
+
+    // Add our own message locally RIGHT NOW (right side, no server echo needed)
+    setMessages(prev => [...prev, {
+      message:    msg,
+      senderName: user?.name || "Rider",
+      senderRole: "rider",
+      timestamp:  Date.now(),
+    }]);
+
     socketRef.current.emit("chatMessage", {
       rideId: id, message: msg,
-      senderName: user?.name || "Rider", senderRole: "rider",
+      senderName: user?.name || "Rider", senderRole: "rider", senderId: user?.id,
     });
-    if (!text) setInput(""); // only clear input if typed (not quick reply)
+    if (!text) setInput("");
+  };
+
+  const submitRating = async () => {
+    try {
+      await api.post(`/rides/${id}/rating`, {
+        target: "driver",
+        rating,
+        feedback,
+      });
+      setRatingDone(true);
+    } catch {
+      alert("Could not submit rating");
+    }
+  };
+
+  const handlePayNow = async () => {
+    if (isPaying || rideStatus !== "completed") return;
+    setIsPaying(true);
+    setPaymentSuccess("");
+    try {
+      await api.put(`/rides/${id}/payment`, {
+        status: "paid",
+        transactionId:
+          selectedPaymentMethod === "cash" ? undefined : `${selectedPaymentMethod}_${Date.now()}`,
+      });
+      setRide((prev) =>
+        prev
+          ? {
+              ...prev,
+              payment: {
+                ...(prev.payment || {}),
+                method: selectedPaymentMethod,
+                status: "paid",
+              },
+            }
+          : prev
+      );
+      setPaymentSuccess(`Payment successful via ${selectedPaymentMethod.toUpperCase()}.`);
+    } catch (err) {
+      alert(err?.response?.data?.message || "Payment failed. Please try again.");
+    } finally {
+      setIsPaying(false);
+    }
+  };
+
+  const handleCancelRide = async () => {
+    if (isCancelling) return;
+    const requiresExtraConfirm = ["arriving", "inProgress"].includes(status);
+    const msg = requiresExtraConfirm
+      ? "Driver is already near/arrived. Are you sure you want to cancel?"
+      : "Cancel this ride?";
+    if (!confirm(msg)) return;
+
+    setIsCancelling(true);
+    setCancelError("");
+    try {
+      await api.put(`/rides/${id}/cancel`, { reason: cancelReason });
+      isCancelledFlowRef.current = true;
+      setStatus("cancelled");
+      setRide((prev) =>
+        prev
+          ? { ...prev, status: "cancelled", cancellation: { ...(prev.cancellation || {}), reason: cancelReason } }
+          : prev
+      );
+      stopTracking();
+      setShowCancelOptions(false);
+      setIsCancelling(false);
+    } catch (err) {
+      setCancelError(err?.response?.data?.message || "Failed to cancel ride. Please try again.");
+      setIsCancelling(false);
+    }
   };
 
   // ── Pick driver + fetch route ─────────────────────────────────────────────
   useEffect(() => {
+    if (status === "cancelled") return;
+    if (ride?.driver?.location?.coordinates?.length === 2) {
+      const [lng, lat] = ride.driver.location.coordinates;
+      setDriverPos({ lat, lng });
+      setDriver({
+        name: ride.driver.name,
+        rideType: ride.driver.vehicle?.type || ride?.rideType,
+        rating: ride.driver.rating,
+        vehicle: ride.driver.vehicle,
+        lat,
+        lng,
+      });
+      return;
+    }
     const center = userCoords || ride?.pickup?.coordinates;
     if (!center || !ride) return;
 
@@ -223,15 +445,19 @@ export default function RideTracking() {
       } catch { /* ignore */ }
 
       if (!startPos) {
-        startPos   = { lat: center.lat + 0.012, lng: center.lng + 0.015 };
+        // Keep fallback driver visibly far so rider sees approach clearly.
+        startPos   = { lat: center.lat + 0.05, lng: center.lng + 0.06 };
         driverInfo = { name: "Your Driver", rideType: ride.rideType, rating: 4.9 };
       }
+      startPos = ensureDriverStartsAway(startPos, center);
 
       setDriver({ ...driverInfo, ...startPos });
       setDriverPos({ ...startPos });
+      setRidePhase("on_the_way");
+      setRouteIdx(0);
 
-      const dest = userCoords || center;
-      const road = await fetchRoadRoute(startPos, dest);
+      const pickupPoint = center;
+      const road = await fetchRoadRoute(startPos, pickupPoint);
 
       if (road && road.length > 1) {
         setRoutePoints(road);
@@ -240,8 +466,8 @@ export default function RideTracking() {
       } else {
         const steps = 40;
         const straight = Array.from({ length: steps + 1 }, (_, i) => ({
-          lat: lerp(startPos.lat, dest.lat, i / steps),
-          lng: lerp(startPos.lng, dest.lng, i / steps),
+          lat: lerp(startPos.lat, pickupPoint.lat, i / steps),
+          lng: lerp(startPos.lng, pickupPoint.lng, i / steps),
         }));
         setRoutePoints(straight);
         setAheadRoute(straight);
@@ -252,10 +478,73 @@ export default function RideTracking() {
     pick();
   }, [ride, userCoords]);
 
-  // ── Animate driver along route ────────────────────────────────────────────
+  // ── Ride phase machine (on_the_way -> arrived -> in_progress -> completed) ──
   useEffect(() => {
+    if (status === "cancelled" || status === "completed") return;
+    const pickupPoint = ride?.pickup?.coordinates || userCoords;
+    if (!driverPos || !pickupPoint) return;
+    const nearPickup = distanceMeters(driverPos, pickupPoint);
+    if (ridePhase === "on_the_way" && typeof nearPickup === "number" && nearPickup <= 50) {
+      setRidePhase("arrived");
+    }
+  }, [driverPos, ride?.pickup?.coordinates, userCoords, ridePhase, status]);
+
+  useEffect(() => {
+    if (ridePhase !== "arrived") return;
+    if (arrivalTimerRef.current) clearTimeout(arrivalTimerRef.current);
+    arrivalTimerRef.current = setTimeout(async () => {
+      const pickupPoint = ride?.pickup?.coordinates || userCoords;
+      const destinationPoint = ride?.destination?.coordinates;
+      if (!pickupPoint || !destinationPoint) return;
+      setRidePhase("in_progress");
+      setRouteIdx(0);
+      const road = await fetchRoadRoute(pickupPoint, destinationPoint);
+      if (road && road.length > 1) {
+        setRoutePoints(road);
+        setAheadRoute(road);
+        setTraveledRoute([pickupPoint]);
+      } else {
+        const steps = 52;
+        const straight = Array.from({ length: steps + 1 }, (_, i) => ({
+          lat: lerp(pickupPoint.lat, destinationPoint.lat, i / steps),
+          lng: lerp(pickupPoint.lng, destinationPoint.lng, i / steps),
+        }));
+        setRoutePoints(straight);
+        setAheadRoute(straight);
+        setTraveledRoute([pickupPoint]);
+      }
+    }, 2000);
+
+    return () => {
+      if (arrivalTimerRef.current) {
+        clearTimeout(arrivalTimerRef.current);
+        arrivalTimerRef.current = null;
+      }
+    };
+  }, [ridePhase, ride?.pickup?.coordinates, ride?.destination?.coordinates, userCoords]);
+
+  useEffect(() => {
+    if (status === "cancelled") return;
+    if (!driverPos || ridePhase !== "in_progress") return;
+    const destinationPoint = ride?.destination?.coordinates;
+    if (!destinationPoint) return;
+    const nearDestination = distanceMeters(driverPos, destinationPoint);
+    if (typeof nearDestination === "number" && nearDestination <= 50) {
+      setRidePhase("completed");
+    }
+  }, [driverPos, ride?.destination?.coordinates, ridePhase, status]);
+
+  useEffect(() => {
+    if (status === "completed") setRidePhase("completed");
+  }, [status]);
+
+  // ── Animate driver along route (fast + smooth stepping) ───────────────────
+  useEffect(() => {
+    if (status === "cancelled") return;
+    if (ridePhase === "completed") return;
+    if (liveTracking) return;
     if (!routePoints.length) return;
-    const SPEED = 2, TICK = 1600;
+    const SPEED = 1, TICK = 300;
     const iv = setInterval(() => {
       setRouteIdx(prev => {
         const next = Math.min(prev + SPEED, routePoints.length - 1);
@@ -267,40 +556,106 @@ export default function RideTracking() {
       });
     }, TICK);
     return () => clearInterval(iv);
-  }, [routePoints]);
+  }, [routePoints, liveTracking, ridePhase, status]);
 
   const rideType  = ride?.rideType || "standard";
   const vehicle   = VEHICLE[rideType] || VEHICLE.standard;
   const mapCenter = userCoords || ride?.pickup?.coordinates || { lat:28.6139, lng:77.209 };
+  const isDriverAssigned = Boolean(ride?.driver) || ["accepted", "arriving", "inProgress"].includes(status);
+  const driverDisplayName = ride?.driver?.name || driver?.name || (isDriverAssigned ? "Driver is arriving in a few minutes" : "Finding driver...");
+  const riderTargetPoint = userCoords || ride?.pickup?.coordinates;
+  const pickupPoint = ride?.pickup?.coordinates || userCoords;
+  const destinationPoint = ride?.destination?.coordinates;
+  const driverDistanceKm = distanceKm(driverPos, riderTargetPoint);
+  const destinationDistanceKm = distanceKm(driverPos, destinationPoint);
+  const rideStatusLabel = ridePhase === "completed"
+    ? "completed"
+    : ridePhase === "in_progress"
+      ? "in_progress"
+      : ridePhase === "arrived"
+        ? "arrived"
+        : "on_the_way";
+  const isDriverFarAway = typeof driverDistanceKm === "number" && driverDistanceKm > 2;
+  const isActiveRide = ["requested", "searching", "accepted", "arriving", "started", "inProgress"].includes(status);
+  const arrivalMessage =
+    ridePhase === "completed"
+      ? "Ride completed"
+      : ridePhase === "in_progress"
+        ? (eta ? `Heading to destination · ${eta} minute${eta > 1 ? "s" : ""}` : "Ride in progress")
+        : ridePhase === "arrived"
+          ? "Driver has arrived"
+          : (eta && isActiveRide
+            ? `Driver arriving in ${eta} minute${eta > 1 ? "s" : ""}`
+            : "Driver is arriving in a few minutes");
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col">
 
+      <button
+        onClick={() => setShowCancelOptions((prev) => !prev)}
+        disabled={isCancelling || ["completed", "cancelled"].includes(status)}
+        className="fixed top-3 right-3 z-[1200] text-xs text-red-300 hover:text-red-200 py-2 px-3 border border-red-500/40 rounded-lg bg-[#111]/95 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+      >
+        {showCancelOptions ? "Close cancel" : "Cancel ride"}
+      </button>
+      {showCancelOptions && !["completed", "cancelled"].includes(status) && (
+        <div className="fixed top-14 right-3 z-[1200] bg-[#111]/95 border border-[#2a2a2a] rounded-lg p-2">
+          <p className="text-[10px] text-gray-500 mb-1 tracking-wider">CANCEL REASON</p>
+          <select
+            value={cancelReason}
+            onChange={(e) => setCancelReason(e.target.value)}
+            className="bg-[#1a1a1a] border border-[#2a2a2a] rounded px-2 py-1 text-[11px] text-white outline-none"
+          >
+            {CANCEL_REASONS.map((reason) => (
+              <option key={reason} value={reason}>{reason}</option>
+            ))}
+          </select>
+          <button
+            onClick={handleCancelRide}
+            disabled={isCancelling}
+            className="mt-2 w-full py-1.5 rounded border border-red-500/40 text-red-300 text-[11px] hover:text-red-200 disabled:opacity-50"
+          >
+            {isCancelling ? "Cancelling..." : "Confirm cancel"}
+          </button>
+        </div>
+      )}
+
       {/* Header */}
-      <div className="border-b border-[#1a1a1a] px-6 py-4 flex justify-between items-center shrink-0">
+      <div className="border-b border-[#1a1a1a] px-6 py-4 pr-28 flex justify-between items-center shrink-0">
         <div>
           <h1 className="text-lg tracking-[0.2em] font-light">VELOUR</h1>
           <p className="text-xs text-gray-600 tracking-widest">RIDE</p>
         </div>
         <div className="flex gap-2">
-          {!["completed","cancelled","inProgress"].includes(status) && (
-            <button
-              onClick={async () => {
-                if (!confirm("Cancel this ride?")) return;
-                try { await api.delete(`/rides/${id}`); navigate("/ride"); }
-                catch { alert("Cancel failed"); }
-              }}
-              className="text-xs text-red-400 hover:text-red-300 py-2 px-3 border border-red-500/30 rounded-lg transition-colors"
-            >Cancel</button>
-          )}
           <button onClick={() => navigate("/ride")}
             className="text-xs text-gray-600 hover:text-white py-2 px-3 border border-gray-600 rounded-lg transition-colors">
             {status === "completed" ? "Home" : "Back"}
           </button>
         </div>
       </div>
+      {cancelError && (
+        <div className="mx-4 mt-3 px-3 py-2 rounded-lg border border-red-500/30 bg-red-500/10 text-xs text-red-300">
+          {cancelError}
+        </div>
+      )}
+
+      {status === "cancelled" && (
+        <div className="flex-1 flex items-center justify-center px-6">
+          <div className="w-full max-w-md bg-[#111] border border-red-500/30 rounded-2xl p-6 text-center">
+            <p className="text-lg font-semibold text-red-300">Ride Cancelled</p>
+            <p className="text-sm text-gray-400 mt-2">Your ride has been cancelled successfully.</p>
+            <button
+              onClick={() => navigate("/ride")}
+              className="mt-5 w-full py-3 rounded-xl bg-white text-black text-sm font-medium"
+            >
+              Back to dashboard
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Map */}
+      {status !== "cancelled" && (
       <div className="relative shrink-0" style={{ height: 400 }}>
         <MapContainer center={[mapCenter.lat, mapCenter.lng]} zoom={15}
           style={{ height:"100%", width:"100%" }} zoomControl scrollWheelZoom dragging>
@@ -316,11 +671,31 @@ export default function RideTracking() {
             <Polyline positions={aheadRoute.map(p=>[p.lat,p.lng])}
               pathOptions={{ color: vehicle.color, weight:4, opacity:0.85 }} />
           )}
-          {aheadRoute.length > 1 && (
-            <Polyline positions={aheadRoute.map(p=>[p.lat,p.lng])}
-              pathOptions={{ color:"#fff", weight:2, opacity:0.35, dashArray:"10 10", className:"vr-dash" }} />
+          {driverPos && pickupPoint && ridePhase !== "in_progress" && ridePhase !== "completed" && (
+            <Polyline
+              positions={[[driverPos.lat, driverPos.lng], [pickupPoint.lat, pickupPoint.lng]]}
+              pathOptions={{ color: "#22d3ee", weight: 3, opacity: 0.9 }}
+            />
+          )}
+          {driverPos && destinationPoint && ridePhase === "in_progress" && (
+            <Polyline
+              positions={[[driverPos.lat, driverPos.lng], [destinationPoint.lat, destinationPoint.lng]]}
+              pathOptions={{ color: "#EF4444", weight: 3, opacity: 0.9 }}
+            />
           )}
           {userCoords && <Marker position={[userCoords.lat, userCoords.lng]} icon={USER_ICON} />}
+          {pickupPoint && (
+            <Marker
+              position={[pickupPoint.lat, pickupPoint.lng]}
+              icon={ridePhase === "arrived" || ridePhase === "in_progress" || ridePhase === "completed" ? PICKUP_GREEN_ICON : PICKUP_BLUE_ICON}
+            />
+          )}
+          {destinationPoint && (
+            <Marker
+              position={[destinationPoint.lat, destinationPoint.lng]}
+              icon={DEST_RED_ICON}
+            />
+          )}
           {driverPos && <Marker position={[driverPos.lat, driverPos.lng]}
             icon={makeDriverIcon(driver?.rideType || rideType)} title={driver?.name} />}
         </MapContainer>
@@ -330,38 +705,60 @@ export default function RideTracking() {
           bg-[#111]/95 border border-[#2a2a2a] rounded-full px-5 py-2.5
           flex items-center gap-2.5 shadow-xl pointer-events-none">
           <span className="w-2 h-2 rounded-full animate-pulse shrink-0" style={{ background: vehicle.color }} />
-          <span className="text-sm text-gray-300 whitespace-nowrap">{STATUS_LABELS[status] || status}</span>
-          {eta && status === "searching" && (
+          <span className="text-sm text-gray-300 whitespace-nowrap">{isActiveRide ? arrivalMessage : (STATUS_LABELS[status] || status)}</span>
+          {eta && (ridePhase === "on_the_way" || ridePhase === "in_progress") && (
             <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
               style={{ background: vehicle.color+"33", color: vehicle.color }}>~{eta} min</span>
           )}
         </div>
+
+        {isDriverAssigned && typeof driverDistanceKm === "number" && (
+          <div className="absolute top-4 right-4 z-[999] bg-[#111]/90 border border-[#333] rounded-xl px-3 py-2 pointer-events-none">
+            <p className="text-[11px] text-gray-300">
+              {ridePhase === "completed"
+                ? "Ride completed"
+                : ridePhase === "arrived"
+                  ? "Driver has arrived"
+                  : ridePhase === "in_progress"
+                    ? "Heading to destination"
+                    : (isDriverFarAway ? "Driver is far away" : "Driver assigned")}
+            </p>
+            <p className="text-xs font-semibold" style={{ color: vehicle.color }}>
+              {ridePhase === "in_progress" && typeof destinationDistanceKm === "number"
+                ? `${destinationDistanceKm.toFixed(1)} km to destination`
+                : `${driverDistanceKm.toFixed(1)} km away`}
+            </p>
+          </div>
+        )}
 
         {/* Driver tag */}
         {driver && (
           <div className="absolute top-4 left-4 z-[999] bg-[#111]/90 border border-[#333] rounded-xl px-3 py-2 pointer-events-none">
             <p className="text-xs font-semibold text-white">{driver.name}</p>
             <p className="text-[10px] mt-0.5" style={{ color: vehicle.color }}>
-              {vehicle.emoji} {vehicle.label}{driver.rating ? ` · ★${driver.rating}` : ""}
+              <span className="inline-flex items-center gap-1">
+                <VehicleIcon vehicleType={rideType} size={12} color={vehicle.color} />
+                {vehicle.label}{driver.rating ? ` · ★${driver.rating}` : ""}
+              </span>
             </p>
           </div>
         )}
       </div>
+      )}
 
       {/* ── Driver card + Chat — always visible ── */}
+      {status !== "cancelled" && (
       <div className="flex flex-col flex-1 bg-[#0f0f0f]">
 
         {/* Driver card */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-[#1e1e1e]">
           <div className="w-12 h-12 rounded-full shrink-0 flex items-center justify-center text-2xl border-2"
             style={{ background:"#1a1a1a", borderColor: vehicle.color+"66" }}>
-            {vehicle.emoji}
+            <VehicleIcon vehicleType={rideType} size={22} color={vehicle.color} />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <p className="text-sm font-semibold text-white truncate">
-                {ride?.driver?.name || driver?.name || "Finding driver..."}
-              </p>
+              <p className="text-sm font-semibold text-white truncate">{driverDisplayName}</p>
               {(ride?.driver?.rating || driver?.rating) && (
                 <span className="text-xs font-medium shrink-0" style={{ color: vehicle.color }}>
                   ★ {Number(ride?.driver?.rating || driver?.rating).toFixed(1)}
@@ -376,6 +773,14 @@ export default function RideTracking() {
                 </span>
               )}
             </p>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#1d1d1d] border border-[#2a2a2a] text-gray-300 uppercase">
+                {rideStatusLabel}
+              </span>
+              {(ridePhase === "on_the_way" || ridePhase === "in_progress") && typeof eta === "number" && (
+                <span className="text-[10px] text-gray-400">ETA {eta} min</span>
+              )}
+            </div>
           </div>
           {ride?.fare?.total && (
             <p className="text-base font-bold text-white shrink-0">₹{ride.fare.total}</p>
@@ -393,6 +798,75 @@ export default function RideTracking() {
               <span className="w-2 h-2 rounded-full border border-gray-500 shrink-0" />
               <span className="truncate">{ride.destination?.address}</span>
             </div>
+          </div>
+        )}
+
+        {rideStatus === "completed" && (
+          <div className="px-4 py-3 border-b border-[#1e1e1e] space-y-2">
+            <p className="text-xs text-gray-400 tracking-wider">PAYMENT</p>
+            {ride?.payment?.status === "paid" || paymentSuccess ? (
+              <p className="text-xs text-green-400">
+                {paymentSuccess || "Payment completed successfully."}
+              </p>
+            ) : (
+              <>
+                <div className="grid grid-cols-3 gap-2">
+                  {["cash", "upi", "card"].map((method) => (
+                    <button
+                      key={method}
+                      onClick={() => setSelectedPaymentMethod(method)}
+                      className={`py-2 rounded-xl text-xs border transition-colors ${
+                        selectedPaymentMethod === method
+                          ? "bg-white text-black border-white"
+                          : "bg-[#1a1a1a] text-gray-300 border-[#2a2a2a] hover:border-[#444]"
+                      }`}
+                    >
+                      {method.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={handlePayNow}
+                  disabled={isPaying}
+                  className="w-full py-2 rounded-xl bg-white text-black text-xs font-medium disabled:opacity-50"
+                >
+                  {isPaying ? "Processing..." : "Pay Now"}
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
+        {rideStatus === "completed" && (
+          <div className="px-4 py-3 border-b border-[#1e1e1e] space-y-2">
+            <p className="text-xs text-gray-400 tracking-wider">RATE YOUR DRIVER</p>
+            {ratingDone ? (
+              <p className="text-xs text-green-400">Thanks! Your feedback was submitted.</p>
+            ) : (
+              <>
+                <div className="flex gap-2">
+                  {[1, 2, 3, 4, 5].map((r) => (
+                    <button
+                      key={r}
+                      onClick={() => setRating(r)}
+                      className={`w-8 h-8 rounded-full text-xs ${rating >= r ? "bg-white text-black" : "bg-[#1a1a1a] text-gray-400 border border-[#2a2a2a]"}`}
+                    >
+                      ★
+                    </button>
+                  ))}
+                </div>
+                <textarea
+                  value={feedback}
+                  onChange={(e) => setFeedback(e.target.value)}
+                  placeholder="Share feedback (optional)"
+                  className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl px-3 py-2 text-xs text-white outline-none"
+                  rows={2}
+                />
+                <button onClick={submitRating} className="w-full py-2 rounded-xl bg-white text-black text-xs font-medium">
+                  Submit rating
+                </button>
+              </>
+            )}
           </div>
         )}
 
@@ -476,6 +950,7 @@ export default function RideTracking() {
           </>
         )}
       </div>
+      )}
     </div>
   );
 }

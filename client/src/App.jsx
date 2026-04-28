@@ -7,6 +7,7 @@ import DriverDashboard from "./pages/DriverDashboard";
 import RideTracking from "./pages/RideTracking";
 import RideHistory from "./pages/RideHistory";
 import Profile from "./pages/Profile";
+import Wallet from "./pages/Wallet";
 
 const ProtectedRoute = ({ children, role }) => {
   const { user, loading } = useAuth();
@@ -27,6 +28,7 @@ function AppRoutes() {
       <Route path="/ride/:id" element={<ProtectedRoute role="rider"><RideTracking /></ProtectedRoute>} />
       <Route path="/history" element={<ProtectedRoute><RideHistory /></ProtectedRoute>} />
       <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+      <Route path="/wallet"  element={<ProtectedRoute><Wallet /></ProtectedRoute>} />
       <Route path="/driver" element={<ProtectedRoute role="driver"><DriverDashboard /></ProtectedRoute>} />
     </Routes>
   );

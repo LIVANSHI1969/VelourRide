@@ -116,6 +116,12 @@ export default function RiderDashboard() {
   const [userCoords, setUserCoords] = useState(null);
   const [locationLabel, setLocationLabel] = useState("Detecting location...");
   const [estimate, setEstimate] = useState({ distance: 0, duration: 0, fare: { total: 0, baseFare: 0, distanceFare: 0 } });
+  const [walletBalance, setWalletBalance] = useState(null);
+
+  // Fetch wallet balance on load
+  useEffect(() => {
+    api.get("/wallet").then(({ data }) => setWalletBalance(data.wallet.balance)).catch(() => {});
+  }, []);
 
   const selectedRide = RIDE_TYPES.find((r) => r.id === rideType);
 
@@ -186,6 +192,11 @@ export default function RiderDashboard() {
       setError("Please select a destination");
       return;
     }
+    // Guard: wallet payment with insufficient balance
+    if (paymentMethod === "wallet" && walletBalance !== null && walletBalance < (estimate.fare.total || 0)) {
+      setError(`Insufficient wallet balance (₹${walletBalance}). Please top up or choose Cash.`);
+      return;
+    }
     setError("");
     setLoading(true);
     try {
@@ -253,8 +264,18 @@ export default function RiderDashboard() {
             <h1 className="text-lg tracking-[0.2em] font-light">VELOUR</h1>
             <p className="text-xs text-gray-600 tracking-widest">RIDE</p>
           </div>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-400">Hello, {user?.name?.split(" ")[0]}</span>
+          <div className="flex items-center gap-3">
+            {/* Wallet balance chip */}
+            <button onClick={() => navigate("/wallet")}
+              className="flex items-center gap-1.5 bg-[#1a1a1a] border border-[#2a2a2a]
+                hover:border-[#555] rounded-full px-3 py-1.5 transition-colors">
+              <span className="text-sm">💳</span>
+              <span className="text-xs font-semibold text-white">
+                {walletBalance !== null
+                  ? `₹${walletBalance.toLocaleString("en-IN")}`
+                  : "Wallet"}
+              </span>
+            </button>
             <button onClick={logout} className="text-xs text-gray-600 hover:text-white transition-colors">Sign out</button>
           </div>
         </div>

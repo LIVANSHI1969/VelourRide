@@ -2,6 +2,26 @@ const mongoose = require("mongoose");
 
 const rideSchema = new mongoose.Schema(
   {
+    riderName: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    driverName: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    pickupLocation: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    destinationLocation: {
+      type: String,
+      default: "",
+      trim: true,
+    },
     rider: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -33,9 +53,12 @@ const rideSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["searching", "accepted", "arriving", "inProgress", "completed", "cancelled"],
+      enum: ["scheduled", "searching", "accepted", "arriving", "inProgress", "completed", "cancelled"],
       default: "searching",
     },
+    requestExpiresAt: Date,
+    rejectedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    scheduledAt: Date,
     fare: {
       baseFare: { type: Number, default: 50 },
       distanceFare: { type: Number, default: 0 },
@@ -48,6 +71,7 @@ const rideSchema = new mongoose.Schema(
       method: { type: String, enum: ["cash", "card", "wallet"], default: "cash" },
       status: { type: String, enum: ["pending", "paid", "failed"], default: "pending" },
       transactionId: String,
+      paidAt: Date,
     },
     distance: {
       type: Number, // in km
@@ -60,6 +84,47 @@ const rideSchema = new mongoose.Schema(
     rating: {
       riderRating: { type: Number, min: 1, max: 5 },
       driverRating: { type: Number, min: 1, max: 5 },
+      riderFeedback: String,
+      driverFeedback: String,
+    },
+    navigation: {
+      polyline: [{ lat: Number, lng: Number }],
+      etaMinutes: Number,
+      distanceKm: Number,
+      optimizedAt: Date,
+    },
+    emergency: {
+      triggered: { type: Boolean, default: false },
+      note: String,
+      triggeredAt: Date,
+      triggeredBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    },
+    chatMessages: [
+      {
+        senderId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        senderName: String,
+        senderRole: { type: String, enum: ["rider", "driver"] },
+        message: String,
+        timestamp: { type: Date, default: Date.now },
+      },
+    ],
+    timeline: [
+      {
+        status: String,
+        by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        note: String,
+        at: { type: Date, default: Date.now },
+      },
+    ],
+    cancellation: {
+      cancelledBy: { type: String, enum: ["rider", "driver", "system"] },
+      reason: String,
+      fee: { type: Number, default: 0 },
+    },
+    cancelReason: {
+      type: String,
+      default: "",
+      trim: true,
     },
     startedAt: Date,
     completedAt: Date,
